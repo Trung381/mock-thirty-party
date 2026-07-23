@@ -5,7 +5,7 @@ import { assertDbReady, ensureSchema, query } from './db.js';
 import { requireAuth } from './auth.js';
 import { lookupBill } from './lookupBill.js';
 import { initContext } from './contextInit.js';
-import { createTrip, getTripById, lookupTrip } from './trips.js';
+import { createTrip, getTripById, lookupLatestTrip, lookupTrip } from './trips.js';
 import {
   listCallbacks,
   listDemoSchedules,
@@ -107,7 +107,7 @@ app.post('/taixe247/bookings', requireAuth('/taixe247/bookings'), async (req, re
 
 app.post('/taixe247/bookings/lookup', requireAuth('/taixe247/bookings/lookup'), async (req, res, next) => {
   try {
-    res.json(await lookupTrip(req.body));
+    res.json(await lookupLatestTrip(req.body));
   } catch (error) {
     next(error);
   }

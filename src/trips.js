@@ -100,3 +100,28 @@ export async function lookupTrip(body) {
     },
   };
 }
+
+// The Taixe247 agent needs the active/latest booking only, while the generic
+// lookup endpoint above remains useful for showing a customer's recent history.
+export async function lookupLatestTrip(body) {
+  const input = args(body);
+  const tripId = String(input.trip_id || '').trim();
+  if (tripId) return getTripById(tripId);
+
+  const phone = compactPhone(input.phone || input.caller_number);
+  if (!phone) {
+    return { success: false, error_code: 'missing_lookup_key', error_message: 'trip_id or phone is required' };
+  }
+
+  const { rows } = await query(
+    'SELECT * FROM taxi_trips WHERE phone = $1 ORDER BY created_at DESC LIMIT 1',
+    [phone],
+  );
+  return {
+    success: true,
+    result: {
+      match_status: rows[0] ? 'exact' : 'not_found',
+      trips: rows.map(mapTrip),
+    },
+  };
+}

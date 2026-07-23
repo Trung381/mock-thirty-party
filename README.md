@@ -133,7 +133,8 @@ curl -sS -X POST http://127.0.0.1:38080/taixe247/bookings \
   --data '{"phone":"0342387314","pickup_address":"Cầu Giấy","destination_address":"Hà Đông","pickup_time":"đi ngay","car_type":"lái hộ ô tô","confirmed_fields":["phone","pickup_address","destination_address","pickup_time","car_type"]}'
 ```
 
-Look up a booking by phone or `trip_id`:
+Look up a booking by phone or `trip_id`. A phone lookup returns only that
+customer's most recently created booking:
 
 ```bash
 curl -sS -X POST http://127.0.0.1:38080/taixe247/bookings/lookup \
