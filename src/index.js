@@ -95,6 +95,24 @@ app.post('/secure/trips', requireAuth('/secure/trips'), async (req, res, next) =
   }
 });
 
+// Taixe247's inbound-agent contract. These endpoints deliberately reuse the
+// shared trip store, so a booking created here can also be found via /lookup-trip.
+app.post('/taixe247/bookings', requireAuth('/taixe247/bookings'), async (req, res, next) => {
+  try {
+    res.json(await createTrip(req.body));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/taixe247/bookings/lookup', requireAuth('/taixe247/bookings/lookup'), async (req, res, next) => {
+  try {
+    res.json(await lookupTrip(req.body));
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get('/trips/:trip_id', requireAuth('/trips/:trip_id'), async (req, res, next) => {
   try {
     res.json(await getTripById(req.params.trip_id));

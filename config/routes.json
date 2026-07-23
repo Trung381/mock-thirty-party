@@ -7,6 +7,8 @@
   "POST /apikey/lookup-bill": "api_key",
   "POST /trips": "none",
   "POST /secure/trips": "bearer",
+  "POST /taixe247/bookings": "none",
+  "POST /taixe247/bookings/lookup": "none",
   "GET /trips/:trip_id": "none",
   "POST /lookup-trip": "none",
   "POST /health/schedule-demo": "none",

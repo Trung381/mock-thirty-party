@@ -118,6 +118,29 @@ The response has a stable envelope and flexible business content:
 
 ## Trip Tools
 
+### Taixe247 inbound-agent tools
+
+The `taixe247-inbound-web-session` fixture uses these no-auth endpoints. They
+accept either the tool arguments directly or an `{ "arguments": { ... } }`
+envelope. Created bookings share the same in-memory API model and database as
+the generic trip endpoints below.
+
+Create a booking:
+
+```bash
+curl -sS -X POST http://127.0.0.1:38080/taixe247/bookings \
+  -H 'Content-Type: application/json' \
+  --data '{"phone":"0342387314","pickup_address":"Cầu Giấy","destination_address":"Hà Đông","pickup_time":"đi ngay","car_type":"lái hộ ô tô","confirmed_fields":["phone","pickup_address","destination_address","pickup_time","car_type"]}'
+```
+
+Look up a booking by phone or `trip_id`:
+
+```bash
+curl -sS -X POST http://127.0.0.1:38080/taixe247/bookings/lookup \
+  -H 'Content-Type: application/json' \
+  --data '{"phone":"0342387314","confirmed_fields":["phone"]}'
+```
+
 Create a trip:
 
 ```bash
