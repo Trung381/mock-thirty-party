@@ -99,10 +99,10 @@ and `UPSTREAM_EXTERNAL_ORDERS_TIMEOUT_MS`.
 | Callbot gửi đến mock | Mock gửi đến An Việt |
 | --- | --- |
 | `body.arguments.phone` | `phone` |
-| `body.arguments.customerName` | `customerName` |
-| `body.arguments.deliveryDate` | `deliveryDate` |
+| `body.arguments.customername` | `customerName` |
+| `body.arguments.deliverydate` | `deliveryDate` |
 | `body.arguments.message` | `message` |
-| `body.arguments.externalOrderId` | `externalOrderId` (nếu có) |
+| `body.arguments.externalorderid` | `externalOrderId` (nếu có) |
 | `body.arguments.source` | `source` |
 
 `tool_name`, `session_id`, `tenant_id`, `correlation_id`, `invocation_id` và
@@ -119,10 +119,10 @@ curl -sS -X POST http://127.0.0.1:38080/api/external-orders \
     "tool_name": "create_external_order",
     "arguments": {
       "phone": "0901234533",
-      "customerName": "Trần Thị Quế",
-      "deliveryDate": "2026-08-03",
+      "customername": "Trần Thị Quế",
+      "deliverydate": "2026-08-03",
       "message": "2kg thịt bò mềm, 10 miếng đậu phụ to",
-      "externalOrderId": "TEST-001",
+      "externalorderid": "TEST-001",
       "source": "voice"
     },
     "session_id": "sess_123456",

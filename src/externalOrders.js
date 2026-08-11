@@ -33,12 +33,14 @@ function timeoutMs() {
 function upstreamPayload(argumentsValue) {
   const payload = {
     phone: text(argumentsValue.phone),
-    customerName: text(argumentsValue.customerName),
-    deliveryDate: text(argumentsValue.deliveryDate),
+    // The callbot runtime lowercases machine-footer attribute names. Keep the
+    // webhook contract lowercase, then translate only at the An Việt boundary.
+    customerName: text(argumentsValue.customername),
+    deliveryDate: text(argumentsValue.deliverydate),
     message: text(argumentsValue.message),
     source: text(argumentsValue.source) || 'voice',
   };
-  const externalOrderId = text(argumentsValue.externalOrderId);
+  const externalOrderId = text(argumentsValue.externalorderid);
   if (externalOrderId) payload.externalOrderId = externalOrderId;
   return payload;
 }
@@ -83,7 +85,7 @@ export async function createExternalOrder(body) {
   if (!payload.phone || !payload.customerName || !payload.deliveryDate || !payload.message) {
     return invalid(
       'CREATE_ORDER_FAILED',
-      'phone, customerName, deliveryDate and message are required',
+      'phone, customername, deliverydate and message are required',
       'Dạ em xin lỗi, em chưa đủ thông tin để tạo đơn. Anh/chị cho em kiểm tra lại tên, số điện thoại, ngày giao và nội dung đơn nhé.',
     );
   }
