@@ -86,6 +86,46 @@ Callbot tool endpoint from another Tailscale machine:
 http://<this-machine-tailscale-ip>:38080/lookup-bill
 ```
 
+## External Order Tool
+
+This endpoint implements the provider webhook contract used by the An Việt
+demo. It requires the standard Callbot envelope and reads order fields from
+`arguments`.
+
+Create an order:
+
+```bash
+curl -sS -X POST http://127.0.0.1:38080/api/external-orders \
+  -H 'Content-Type: application/json' \
+  --data '{
+    "tool_name": "create_external_order",
+    "arguments": {
+      "phone": "0901234533",
+      "customerName": "Trần Thị Quế",
+      "deliveryDate": "2026-08-03",
+      "message": "2kg thịt bò mềm, 10 miếng đậu phụ to",
+      "externalOrderId": "TEST-001",
+      "source": "voice"
+    },
+    "session_id": "sess_123456",
+    "tenant_id": "an-viet-demo",
+    "correlation_id": "corr_123456",
+    "invocation_id": "invoke_123456",
+    "caller_number": "0901234533"
+  }'
+```
+
+The first request returns HTTP `201` with `success: true`,
+`duplicate: false` and an order code. Repeating the same `invocation_id`
+or `externalOrderId` returns `duplicate: true` without creating a new
+order.
+
+List mock orders:
+
+```bash
+curl -sS http://127.0.0.1:38080/api/external-orders
+```
+
 ## Context Init
 
 This endpoint is intended for Callytics `/runtime/resolve` to fetch partner
