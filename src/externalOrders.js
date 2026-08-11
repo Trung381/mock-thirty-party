@@ -1,3 +1,5 @@
+import { randomBytes } from 'node:crypto';
+
 const DEFAULT_UPSTREAM_URL = 'http://139.162.40.219:3000/api/external-orders';
 const DEFAULT_TIMEOUT_MS = 5000;
 
@@ -30,6 +32,18 @@ function timeoutMs() {
   return Number.isFinite(value) && value > 0 ? value : DEFAULT_TIMEOUT_MS;
 }
 
+function generatedExternalOrderId(now = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now);
+  const date = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  const suffix = randomBytes(3).toString('hex').toUpperCase();
+  return `AV-${date.year}${date.month}${date.day}-${suffix}`;
+}
+
 function upstreamPayload(argumentsValue) {
   const payload = {
     phone: text(argumentsValue.phone),
@@ -40,13 +54,14 @@ function upstreamPayload(argumentsValue) {
     message: text(argumentsValue.message),
     source: text(argumentsValue.source) || 'voice',
   };
-  const externalOrderId = text(argumentsValue.externalorderid);
-  if (externalOrderId) payload.externalOrderId = externalOrderId;
+  // Order IDs are owned by this gateway so callers do not need to generate
+  // random values or retain them in agent memory.
+  payload.externalOrderId = generatedExternalOrderId();
   return payload;
 }
 
-function customerMessage(result) {
-  const code = text(result?.order?.code);
+function customerMessage(result, externalOrderId) {
+  const code = text(externalOrderId) || text(result?.order?.code);
   const duplicate = result?.duplicate === true;
   if (duplicate && code) {
     return 'Dạ, đơn hàng của anh/chị đã được hệ thống ghi nhận trước đó với mã đơn ' + code + ' ạ.';
@@ -142,6 +157,8 @@ export async function createExternalOrder(body) {
   return {
     success: true,
     result,
-    user_message_vi: text(upstreamResult.user_message_vi) || customerMessage(result),
+    // The mock owns externalOrderId, so make the customer-facing message use
+    // that exact generated ID rather than an optional upstream order code.
+    user_message_vi: customerMessage(result, payload.externalOrderId),
   };
 }

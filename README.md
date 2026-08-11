@@ -102,7 +102,7 @@ and `UPSTREAM_EXTERNAL_ORDERS_TIMEOUT_MS`.
 | `body.arguments.customername` | `customerName` |
 | `body.arguments.deliverydate` | `deliveryDate` |
 | `body.arguments.message` | `message` |
-| `body.arguments.externalorderid` | `externalOrderId` (nếu có) |
+| Không gửi `externalorderid` | Mock tự sinh `externalOrderId` dạng `AV-YYYYMMDD-XXXXXX` |
 | `body.arguments.source` | `source` |
 
 `tool_name`, `session_id`, `tenant_id`, `correlation_id`, `invocation_id` và
@@ -122,7 +122,6 @@ curl -sS -X POST http://127.0.0.1:38080/api/external-orders \
       "customername": "Trần Thị Quế",
       "deliverydate": "2026-08-03",
       "message": "2kg thịt bò mềm, 10 miếng đậu phụ to",
-      "externalorderid": "TEST-001",
       "source": "voice"
     },
     "session_id": "sess_123456",
