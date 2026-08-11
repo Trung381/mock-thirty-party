@@ -71,12 +71,21 @@ function upstreamPayload(argumentsValue) {
 
 function customerMessage(result, externalOrderId) {
   const code = text(externalOrderId) || text(result?.order?.code);
+  const spokenCode = code
+    ? [...code.toLowerCase()].flatMap((character) => {
+      const digit = {
+        0: 'không', 1: 'một', 2: 'hai', 3: 'ba', 4: 'bốn',
+        5: 'năm', 6: 'sáu', 7: 'bảy', 8: 'tám', 9: 'chín',
+      }[character];
+      return digit ? [digit] : /[a-z]/.test(character) ? [character] : [];
+    }).join(' ')
+    : '';
   const duplicate = result?.duplicate === true;
-  if (duplicate && code) {
-    return 'Dạ, đơn hàng của anh/chị đã được hệ thống ghi nhận trước đó với mã đơn ' + code + ' ạ.';
+  if (duplicate && spokenCode) {
+    return 'Dạ, đơn hàng của anh/chị đã được hệ thống ghi nhận trước đó với mã đơn ' + spokenCode + ' ạ.';
   }
-  if (code) {
-    return 'Dạ, em đã ghi nhận đơn hàng của anh/chị với mã đơn ' + code + ' ạ.';
+  if (spokenCode) {
+    return 'Dạ, em đã ghi nhận đơn hàng của anh/chị với mã đơn ' + spokenCode + ' ạ.';
   }
   return 'Dạ, em đã ghi nhận đơn hàng của anh/chị và đang kiểm tra lại thông tin ạ.';
 }
