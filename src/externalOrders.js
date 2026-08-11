@@ -7,6 +7,15 @@ function text(value) {
   return String(value || '').trim().replace(/\s+/g, ' ');
 }
 
+function maskedPhone(value) {
+  const phone = text(value);
+  return phone.length > 4 ? `***${phone.slice(-4)}` : phone;
+}
+
+function logExternalOrder(event, details) {
+  console.info(JSON.stringify({ event, ...details }));
+}
+
 function toolArguments(body) {
   return body && typeof body.arguments === 'object' && body.arguments !== null
     ? body.arguments
@@ -98,6 +107,13 @@ export async function createExternalOrder(body) {
 
   const payload = upstreamPayload(argumentsValue);
   if (!payload.phone || !payload.customerName || !payload.deliveryDate || !payload.message) {
+    logExternalOrder('external_order_rejected', {
+      reason: 'missing_required_fields',
+      hasPhone: Boolean(payload.phone),
+      hasCustomerName: Boolean(payload.customerName),
+      hasDeliveryDate: Boolean(payload.deliveryDate),
+      hasMessage: Boolean(payload.message),
+    });
     return invalid(
       'CREATE_ORDER_FAILED',
       'phone, customername, deliverydate and message are required',
@@ -108,6 +124,15 @@ export async function createExternalOrder(body) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs());
   let response;
+  logExternalOrder('external_order_tool_called', {
+    toolName: text(body?.tool_name) || 'create_external_order',
+    invocationId: text(body?.invocation_id) || null,
+    phone: maskedPhone(payload.phone),
+    deliveryDate: payload.deliveryDate,
+    source: payload.source,
+    messageLength: payload.message.length,
+    externalOrderId: payload.externalOrderId,
+  });
   try {
     response = await fetch(upstreamUrl(), {
       method: 'POST',
@@ -127,6 +152,11 @@ export async function createExternalOrder(body) {
   }
 
   const upstreamResult = await parseJson(response);
+  logExternalOrder('external_order_upstream_response', {
+    externalOrderId: payload.externalOrderId,
+    upstreamStatus: response.status,
+    upstreamOrderCode: text(upstreamResult?.order?.code) || null,
+  });
   if (!response.ok) {
     return invalid(
       'UPSTREAM_CREATE_ORDER_FAILED',
