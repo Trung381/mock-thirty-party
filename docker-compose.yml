@@ -25,6 +25,8 @@ services:
       AUTH_BEARER_TOKEN: ${AUTH_BEARER_TOKEN:-mock-tool-token}
       AUTH_API_KEY: ${AUTH_API_KEY:-mock-tool-api-key}
       ROUTE_AUTH_CONFIG_PATH: /app/config/routes.json
+      UPSTREAM_EXTERNAL_ORDERS_URL: ${UPSTREAM_EXTERNAL_ORDERS_URL:-http://139.162.40.219:3000/api/external-orders}
+      UPSTREAM_EXTERNAL_ORDERS_TIMEOUT_MS: ${UPSTREAM_EXTERNAL_ORDERS_TIMEOUT_MS:-5000}
     ports:
       - "38080:38080"
     depends_on:

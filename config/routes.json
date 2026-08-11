@@ -12,7 +12,6 @@
   "GET /trips/:trip_id": "none",
   "POST /lookup-trip": "none",
   "POST /api/external-orders": "none",
-  "GET /api/external-orders": "none",
   "POST /health/schedule-demo": "none",
   "POST /health/schedule-callback": "none",
   "POST /health/report-lead-outcome": "none",

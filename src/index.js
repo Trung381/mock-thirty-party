@@ -26,7 +26,7 @@ import {
   listCallCompletedWebhooks,
   receiveCallCompletedWebhook,
 } from './callyticsWebhooks.js';
-import { createExternalOrder, listExternalOrders } from './externalOrders.js';
+import { createExternalOrder } from './externalOrders.js';
 import { compactCode, compactPhone } from './text.js';
 
 const app = express();
@@ -135,14 +135,6 @@ app.post('/api/external-orders', requireAuth('/api/external-orders'), async (req
     const result = await createExternalOrder(req.body);
     const isNewOrder = result.success && result.result?.duplicate === false;
     res.status(isNewOrder ? 201 : 200).json(result);
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.get('/api/external-orders', requireAuth('/api/external-orders'), async (_req, res, next) => {
-  try {
-    res.json(await listExternalOrders());
   } catch (error) {
     next(error);
   }

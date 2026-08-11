@@ -88,9 +88,27 @@ http://<this-machine-tailscale-ip>:38080/lookup-bill
 
 ## External Order Tool
 
-This endpoint implements the provider webhook contract used by the An Việt
-demo. It requires the standard Callbot envelope and reads order fields from
-`arguments`.
+This endpoint is a gateway for the An Việt demo. It accepts the standard
+Callbot envelope, reads order fields from `arguments`, then forwards only the
+provider body to `POST http://139.162.40.219:3000/api/external-orders`.
+The upstream URL and timeout can be changed with `UPSTREAM_EXTERNAL_ORDERS_URL`
+and `UPSTREAM_EXTERNAL_ORDERS_TIMEOUT_MS`.
+
+### Gateway mapping
+
+| Callbot gửi đến mock | Mock gửi đến An Việt |
+| --- | --- |
+| `body.arguments.phone` | `phone` |
+| `body.arguments.customerName` | `customerName` |
+| `body.arguments.deliveryDate` | `deliveryDate` |
+| `body.arguments.message` | `message` |
+| `body.arguments.externalOrderId` | `externalOrderId` (nếu có) |
+| `body.arguments.source` | `source` |
+
+`tool_name`, `session_id`, `tenant_id`, `correlation_id`, `invocation_id` và
+`caller_number` không được gửi sang API An Việt vì API này chỉ nhận body đơn
+giản. Response đơn hàng của An Việt được đặt vào `result`; mock thêm
+`success: true` và `user_message_vi` để Callbot đọc cho khách.
 
 Create an order:
 
@@ -115,16 +133,10 @@ curl -sS -X POST http://127.0.0.1:38080/api/external-orders \
   }'
 ```
 
-The first request returns HTTP `201` with `success: true`,
-`duplicate: false` and an order code. Repeating the same `invocation_id`
-or `externalOrderId` returns `duplicate: true` without creating a new
-order.
-
-List mock orders:
-
-```bash
-curl -sS http://127.0.0.1:38080/api/external-orders
-```
+The gateway returns the standardized Callbot response: `success`, `result`
+and `user_message_vi`. `result` contains the order response returned by An
+Việt. Idempotency remains the responsibility of An Việt because it creates
+the actual order.
 
 ## Context Init
 
