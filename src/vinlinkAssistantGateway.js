@@ -105,6 +105,15 @@ function idempotencyKey(body) {
   return text(body?.invocation_id) || randomUUID();
 }
 
+function validationDetails(upstream) {
+  const details = upstream?.error?.details;
+  if (!Array.isArray(details)) return undefined;
+  return details.slice(0, 10).map((detail) => ({
+    field: text(detail?.field) || null,
+    issue: text(detail?.issue) || null,
+  }));
+}
+
 async function fetchJson(url, options, timeoutMs) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -180,7 +189,14 @@ async function upstreamCall(body, method, path, payload, { write = false } = {})
     }, settings.timeoutMs);
     if (!response.ok || upstream?.success === false) {
       const code = text(upstream?.error?.code || upstream?.error_code) || `UPSTREAM_HTTP_${response.status}`;
-      log('vinlink_upstream_rejected', { method, path, status: response.status, code });
+      log('vinlink_upstream_rejected', {
+        method,
+        path,
+        status: response.status,
+        code,
+        traceId: text(upstream?.traceId) || null,
+        validation: validationDetails(upstream),
+      });
       return invalid(code, text(upstream?.error?.message || upstream?.message) || `Upstream HTTP ${response.status}`, 'Dạ hệ thống đặt xe chưa xử lý được yêu cầu này. Anh/chị vui lòng thử lại sau ít phút ạ.');
     }
     return { success: true, data: upstream?.data, traceId: text(upstream?.traceId) };
@@ -384,6 +400,9 @@ export function createBooking(body) {
     const confirmed = input.confirmed === true || required.every((field) => confirmedFields.includes(field));
     if (!customerPhone || !customerName || !Number.isInteger(serviceId) || !pickup || !destination || !['CASH', 'WALLET', 'CARD'].includes(paymentMethod)) {
       return { error: invalid('VALIDATION_ERROR', 'missing booking fields', 'Dạ em chưa đủ thông tin đặt xe. Anh/chị cho em kiểm tra lại số điện thoại, tên, điểm đón, điểm đến và phương thức thanh toán nhé.') };
+    }
+    if (!quoteId) {
+      return { error: invalid('QUOTE_REQUIRED', 'quote_id is required when booking has a destination', 'Dạ em cần kiểm tra giá hành trình trước khi tạo yêu cầu đặt xe cho anh/chị ạ.') };
     }
     if (!confirmed) return { error: invalid('CONFIRMATION_REQUIRED', 'confirmed_fields is incomplete', 'Dạ anh/chị xác nhận lại thông tin đặt xe giúp em trước khi tạo yêu cầu nhé.') };
     return { customerPhone, customerName, ...(quoteId ? { quoteId } : {}), serviceId, pickup, dropoffs: [destination], pickupTime, paymentMethod, note: text(read(input, 'note')), bookNow: false, confirmed: true };
