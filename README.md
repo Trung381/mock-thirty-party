@@ -169,12 +169,82 @@ The response has a stable envelope and flexible business content:
 
 ## Trip Tools
 
+## Vinlink AI Assistant Gateway
+
+`/vinlink/assistant/*` là lớp chuyển đổi giữa Callbot và API công khai của
+VNLINK. Callbot chỉ gửi webhook envelope chuẩn (dữ liệu luôn nằm trong
+`arguments`); gateway tự thêm `Authorization`, `X-Channel: VOICE`,
+`X-Trace-Id`, `X-Request-Id` và `Idempotency-Key` khi gọi upstream.
+
+Mặc định docker compose chạy `VINLINK_ASSISTANT_MODE=mock`, nên có thể test
+không cần tài khoản đối tác. Để nối API thật, tạo file `.env` tại thư mục này:
+
+```dotenv
+VINLINK_ASSISTANT_MODE=upstream
+VINLINK_ASSISTANT_API_BASE_URL=https://apigwdev.taixe247.vn
+VINLINK_ASSISTANT_USERNAME=ai_cskh
+VINLINK_ASSISTANT_PASSWORD=<mat-khau-do-quan-tri-cap>
+VINLINK_ASSISTANT_DEFAULT_SERVICE_ID=10
+VINLINK_ASSISTANT_TIMEOUT_MS=5000
+```
+
+Không đặt mật khẩu hoặc access token VNLINK trong file cấu hình Callbot. Với
+upstream, gateway login/refresh token một lần dùng chung, không tự gửi lại
+request nghiệp vụ nếu upstream trả 401. `VINLINK_ASSISTANT_DEFAULT_SERVICE_ID`
+phải được thay bằng mã dịch vụ thật do VNLINK cung cấp; bot không hỏi mã kỹ
+thuật này của khách.
+
+### Log gọi tool
+
+Gateway ghi log JSON ra `docker compose logs -f api`. Mỗi lần gọi sẽ có một
+trong hai event:
+
+```text
+vinlink_tool_succeeded  # gọi thành công
+vinlink_tool_failed     # lỗi envelope, validation hoặc phía VNLINK
+```
+
+Log có `toolName`, `invocationId`, `mode`, `errorCode` (nếu lỗi), `bookingId`,
+`quoteId` hoặc `status` khi phù hợp. Số điện thoại và token không được in đầy đủ.
+
+| Tool Callbot | Endpoint gateway | API VNLINK |
+| --- | --- | --- |
+| `vinlink_search_places` | `POST /vinlink/assistant/places/search` | `POST /api/v1/assistant/places/search` |
+| `vinlink_reverse_place` | `POST /vinlink/assistant/places/reverse` | `POST /api/v1/assistant/places/reverse` |
+| `vinlink_get_quote` | `POST /vinlink/assistant/quotes` | `POST /api/v1/assistant/quotes` |
+| `vinlink_create_booking` | `POST /vinlink/assistant/bookings` | `POST /api/v1/assistant/bookings` |
+| `vinlink_get_current_booking` | `POST /vinlink/assistant/bookings/current` | `GET /api/v1/assistant/bookings/current` |
+| `vinlink_get_booking` | `POST /vinlink/assistant/bookings/detail` | `GET /api/v1/assistant/bookings/{bookingId}` |
+| `vinlink_cancel_booking` | `POST /vinlink/assistant/bookings/cancel` | `POST /api/v1/assistant/bookings/{bookingId}/cancel` |
+| `vinlink_reprice_booking` | `POST /vinlink/assistant/bookings/reprice` | `POST /api/v1/assistant/bookings/{bookingId}/reprice` |
+
+Ví dụ kiểm tra giá theo đúng envelope Callbot:
+
+```bash
+curl -sS -X POST http://127.0.0.1:38080/vinlink/assistant/quotes \
+  -H 'Content-Type: application/json' \
+  --data '{
+    "tool_name":"vinlink_get_quote",
+    "arguments":{"service_id":10,"pickup_address":"Cầu Giấy, Hà Nội","destination_address":"Sân bay Nội Bài","pickup_time":"NOW"},
+    "session_id":"vinlink-demo-01",
+    "tenant_id":"vinlink",
+    "correlation_id":"corr-vinlink-01",
+    "invocation_id":"quote-vinlink-01",
+    "caller_number":"0342387314"
+  }'
+```
+
+Khi bảo vệ gateway bằng Bearer token trong production, đổi các route Vinlink
+trong `config/routes.json` sang `bearer` và cấu hình cùng token ở
+`runtime_config.tools[].executor_config.auth` của Callbot. Fixture
+`taixe247-inbound-web-session` đang trỏ tới `103.69.97.113:38080`; đổi IP này
+thành host chạy `mock-thirty-party` nếu môi trường của bạn khác.
+
 ### Taixe247 inbound-agent tools
 
-The `taixe247-inbound-web-session` fixture uses these no-auth endpoints. They
-accept either the tool arguments directly or an `{ "arguments": { ... } }`
-envelope. Created bookings share the same in-memory API model and database as
-the generic trip endpoints below.
+Các endpoint legacy dưới đây giữ lại cho fixture cũ. Fixture
+`taixe247-inbound-web-session` hiện dùng Vinlink gateway ở phần trên. Các
+endpoint legacy chấp nhận trực tiếp arguments hoặc envelope `{ "arguments": { ... } }`.
 
 Create a booking:
 

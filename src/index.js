@@ -27,6 +27,16 @@ import {
   receiveCallCompletedWebhook,
 } from './callyticsWebhooks.js';
 import { createExternalOrder } from './externalOrders.js';
+import {
+  cancelBooking,
+  createBooking,
+  getBooking,
+  getCurrentBooking,
+  getQuote,
+  repriceBooking,
+  reversePlace,
+  searchPlaces,
+} from './vinlinkAssistantGateway.js';
 import { compactCode, compactPhone } from './text.js';
 
 const app = express();
@@ -112,6 +122,34 @@ app.post('/taixe247/bookings/lookup', requireAuth('/taixe247/bookings/lookup'), 
   } catch (error) {
     next(error);
   }
+});
+
+// Vinlink gateway: Callbot webhook envelope -> VNLINK AI Assistant API.
+// All routes are POST because the Callbot tool runtime invokes webhooks by POST;
+// the gateway maps read tools to the upstream GET endpoints where required.
+app.post('/vinlink/assistant/places/search', requireAuth('/vinlink/assistant/places/search'), async (req, res, next) => {
+  try { res.json(await searchPlaces(req.body)); } catch (error) { next(error); }
+});
+app.post('/vinlink/assistant/places/reverse', requireAuth('/vinlink/assistant/places/reverse'), async (req, res, next) => {
+  try { res.json(await reversePlace(req.body)); } catch (error) { next(error); }
+});
+app.post('/vinlink/assistant/quotes', requireAuth('/vinlink/assistant/quotes'), async (req, res, next) => {
+  try { res.json(await getQuote(req.body)); } catch (error) { next(error); }
+});
+app.post('/vinlink/assistant/bookings', requireAuth('/vinlink/assistant/bookings'), async (req, res, next) => {
+  try { res.json(await createBooking(req.body)); } catch (error) { next(error); }
+});
+app.post('/vinlink/assistant/bookings/current', requireAuth('/vinlink/assistant/bookings/current'), async (req, res, next) => {
+  try { res.json(await getCurrentBooking(req.body)); } catch (error) { next(error); }
+});
+app.post('/vinlink/assistant/bookings/detail', requireAuth('/vinlink/assistant/bookings/detail'), async (req, res, next) => {
+  try { res.json(await getBooking(req.body)); } catch (error) { next(error); }
+});
+app.post('/vinlink/assistant/bookings/cancel', requireAuth('/vinlink/assistant/bookings/cancel'), async (req, res, next) => {
+  try { res.json(await cancelBooking(req.body)); } catch (error) { next(error); }
+});
+app.post('/vinlink/assistant/bookings/reprice', requireAuth('/vinlink/assistant/bookings/reprice'), async (req, res, next) => {
+  try { res.json(await repriceBooking(req.body)); } catch (error) { next(error); }
 });
 
 app.get('/trips/:trip_id', requireAuth('/trips/:trip_id'), async (req, res, next) => {
