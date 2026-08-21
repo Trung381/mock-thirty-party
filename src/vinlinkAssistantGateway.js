@@ -95,9 +95,10 @@ function placeRef(input, prefix) {
 function customer(input) {
   const customerId = number(read(input, 'customer_id', 'customerId'));
   const customerPhone = safePhone(read(input, 'customer_phone', 'customerPhone', 'phone'));
-  if (customerId !== null) return { customerId };
-  if (customerPhone) return { customerPhone };
-  return null;
+  const result = {};
+  if (customerId !== null) result.customerId = customerId;
+  if (customerPhone) result.customerPhone = customerPhone;
+  return Object.keys(result).length ? result : null;
 }
 
 function idempotencyKey(body) {
@@ -257,9 +258,16 @@ function mockCurrentBooking(customerId) {
   return { success: true, data: bookings.at(-1), customerId };
 }
 
-function mockBookingDetail(bookingId) {
+function mockBookingDetail(bookingId, owner) {
   const booking = mockBookings.get(bookingId);
-  return booking ? { success: true, data: booking } : invalid('BOOKING_NOT_FOUND', 'bookingId was not found', 'Dạ em chưa tìm thấy chuyến phù hợp để kiểm tra cho anh/chị ạ.');
+  if (!booking) return invalid('BOOKING_NOT_FOUND', 'bookingId was not found', 'Dạ em chưa tìm thấy chuyến phù hợp để kiểm tra cho anh/chị ạ.');
+  // The public API verifies booking ownership. Require a matching phone in mock
+  // mode too, so an integration test cannot accidentally pass with another
+  // customer's booking ID.
+  if (!owner?.customerPhone || safePhone(booking.customerPhone) !== safePhone(owner.customerPhone)) {
+    return invalid('PERMISSION_DENIED', 'booking does not belong to the supplied customer', 'Dạ em chưa thể xác minh chuyến này thuộc số điện thoại anh/chị cung cấp ạ.');
+  }
+  return { success: true, data: booking };
 }
 
 function result(data, userMessageVi, trace = '') {
@@ -396,7 +404,7 @@ export function getBooking(body) {
     const owner = customer(input);
     if (!bookingId || !owner) return { error: invalid('VALIDATION_ERROR', 'booking_id and customer id or phone are required', 'Dạ anh/chị cho em xin mã chuyến và số điện thoại đã dùng để đặt xe để em kiểm tra nhé.') };
     return { bookingId, owner };
-  }, (payload) => mockBookingDetail(payload.bookingId), (data) => `Dạ, em đã tra cứu chuyến của anh/chị. Trạng thái hiện tại là ${text(data?.status) || 'đang được cập nhật'} ạ.`, { method: 'GET', path: '/api/v1/assistant/bookings/{bookingId}' });
+  }, (payload) => mockBookingDetail(payload.bookingId, payload.owner), (data) => `Dạ, em đã tra cứu chuyến của anh/chị. Trạng thái hiện tại là ${text(data?.status) || 'đang được cập nhật'} ạ.`, { method: 'GET', path: '/api/v1/assistant/bookings/{bookingId}' });
 }
 
 export function cancelBooking(body) {
@@ -409,7 +417,7 @@ export function cancelBooking(body) {
     if (!confirmed) return { error: invalid('CONFIRMATION_REQUIRED', 'cancellation needs confirmation', 'Dạ anh/chị xác nhận hủy chuyến này giúp em nhé.') };
     return { bookingId, customer: owner, reason };
   }, (payload) => {
-    const found = mockBookingDetail(payload.bookingId);
+    const found = mockBookingDetail(payload.bookingId, payload.customer);
     if (!found.success) return found;
     found.data.status = 'CANCELLED';
     return found;
@@ -424,7 +432,7 @@ export function repriceBooking(body) {
     if (!bookingId || !owner || !quoteId) return { error: invalid('VALIDATION_ERROR', 'booking_id, customer and quote_id are required', 'Dạ em cần mã chuyến, thông tin xác thực và báo giá mới để cập nhật giá ạ.') };
     return { bookingId, customer: owner, quoteId };
   }, (payload) => {
-    const found = mockBookingDetail(payload.bookingId);
+    const found = mockBookingDetail(payload.bookingId, payload.customer);
     const quote = mockQuotes.get(payload.quoteId);
     if (!found.success) return found;
     if (!quote) return invalid('QUOTE_NOT_FOUND', 'quoteId was not found', 'Dạ báo giá mới không còn hiệu lực. Em xin phép kiểm tra lại cho anh/chị ạ.');
