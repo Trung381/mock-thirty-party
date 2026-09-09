@@ -11,6 +11,7 @@
   "POST /taixe247/bookings/lookup": "none",
   "POST /vinlink/assistant/places/search": "none",
   "POST /vinlink/assistant/places/reverse": "none",
+  "POST /vinlink/assistant/services": "none",
   "POST /vinlink/assistant/quotes": "none",
   "POST /vinlink/assistant/bookings": "none",
   "POST /vinlink/assistant/bookings/current": "none",

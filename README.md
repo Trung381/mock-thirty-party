@@ -184,7 +184,7 @@ VINLINK_ASSISTANT_MODE=upstream
 VINLINK_ASSISTANT_API_BASE_URL=https://apigwdev.taixe247.vn
 VINLINK_ASSISTANT_USERNAME=ai_cskh
 VINLINK_ASSISTANT_PASSWORD=<mat-khau-do-quan-tri-cap>
-VINLINK_ASSISTANT_DEFAULT_SERVICE_ID=10
+VINLINK_ASSISTANT_DEFAULT_SERVICE_ID=2
 VINLINK_ASSISTANT_TIMEOUT_MS=5000
 ```
 
@@ -211,6 +211,7 @@ Log có `toolName`, `invocationId`, `mode`, `errorCode` (nếu lỗi), `bookingI
 | --- | --- | --- |
 | `vinlink_search_places` | `POST /vinlink/assistant/places/search` | `POST /api/v1/assistant/places/search` |
 | `vinlink_reverse_place` | `POST /vinlink/assistant/places/reverse` | `POST /api/v1/assistant/places/reverse` |
+| `vinlink_get_services` | `POST /vinlink/assistant/services` | `GET /api/v1/assistant/services` |
 | `vinlink_get_quote` | `POST /vinlink/assistant/quotes` | `POST /api/v1/assistant/quotes` |
 | `vinlink_create_booking` | `POST /vinlink/assistant/bookings` | `POST /api/v1/assistant/bookings` |
 | `vinlink_get_current_booking` | `POST /vinlink/assistant/bookings/current` | `GET /api/v1/assistant/bookings/current` |

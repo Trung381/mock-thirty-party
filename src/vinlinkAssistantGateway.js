@@ -11,6 +11,12 @@ const demoPlaces = [
   { placeId: 'mock_noi_bai', name: 'Sân bay Nội Bài', address: 'Sân bay Nội Bài, Sóc Sơn, Hà Nội', lat: 21.2187, lng: 105.8042 },
 ];
 
+const demoServices = [
+  { serviceId: 1, code: 'CAR_TRIP', name: 'Lái hộ ô tô theo chuyến', groupName: 'Ô tô' },
+  { serviceId: 2, code: 'CAR_STANDARD', name: 'Lái hộ ô tô', groupName: 'Ô tô' },
+  { serviceId: 3, code: 'MOTORBIKE_TRIP', name: 'Lái hộ xe máy theo chuyến', groupName: 'Xe máy' },
+];
+
 let tokenState = { accessToken: '', refreshToken: '', expiresAt: 0 };
 let tokenFlight = null;
 const mockQuotes = new Map();
@@ -59,7 +65,7 @@ function config() {
     username: text(process.env.VINLINK_ASSISTANT_USERNAME || 'ai_cskh'),
     password: String(process.env.VINLINK_ASSISTANT_PASSWORD || ''),
     staticAccessToken: text(process.env.VINLINK_ASSISTANT_ACCESS_TOKEN),
-    defaultServiceId: number(process.env.VINLINK_ASSISTANT_DEFAULT_SERVICE_ID) || 10,
+    defaultServiceId: number(process.env.VINLINK_ASSISTANT_DEFAULT_SERVICE_ID) || 2,
     timeoutMs: Number.isFinite(timeout) && timeout > 0 ? timeout : DEFAULT_TIMEOUT_MS,
   };
 }
@@ -131,8 +137,8 @@ async function fetchJson(url, options, timeoutMs) {
 function saveTokens(payload) {
   const expiresIn = Number(payload?.expires_in);
   tokenState = {
-    accessToken: text(payload?.access_token),
-    refreshToken: text(payload?.refresh_token),
+    accessToken: text(payload?.access_token || payload?.accessToken),
+    refreshToken: text(payload?.refresh_token || payload?.refreshToken),
     expiresAt: Date.now() + (Number.isFinite(expiresIn) ? expiresIn * 1000 : 0),
   };
   return tokenState.accessToken;
@@ -144,7 +150,7 @@ async function loginOrRefresh() {
   const useRefresh = Boolean(tokenState.refreshToken);
   const path = useRefresh ? '/api/v1/auth/refresh' : '/api/v1/auth/login';
   const payload = useRefresh
-    ? { refresh_token: tokenState.refreshToken }
+    ? { refreshToken: tokenState.refreshToken }
     : { username: settings.username, password: settings.password };
   const { response, body } = await fetchJson(`${settings.baseUrl}${path}`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
@@ -236,6 +242,8 @@ function mockQuote(payload) {
   const quote = {
     quoteId,
     serviceId: payload.serviceId,
+    pickup: mockPlaceFromRef(payload.pickup),
+    dropoffs: payload.dropoffs.map(mockPlaceFromRef),
     distanceMeters: 6500,
     durationSeconds: 1200,
     fare: { amount, currency: 'VND' },
@@ -253,13 +261,13 @@ function mockCreateBooking(payload) {
   const booking = {
     bookingId,
     status: 'FINDING_DRIVER',
-    serviceId: payload.serviceId,
+    serviceId: payload.serviceId || quote?.serviceId,
     serviceName: 'Dịch vụ lái xe',
-    pickup: mockPlaceFromRef(payload.pickup),
-    dropoffs: (payload.dropoffs || []).map(mockPlaceFromRef),
+    pickup: quote?.pickup || mockPlaceFromRef(payload.pickup),
+    dropoffs: quote?.dropoffs || (payload.dropoffs || []).map(mockPlaceFromRef),
     fare: quote?.fare || { amount: 0, currency: 'VND' },
     fareBreakdown: quote?.fareBreakdown || {},
-    paymentMethod: payload.paymentMethod,
+    paymentMethod: payload.paymentMethod || null,
     paymentStatus: 'PENDING',
     createdAt: new Date().toISOString(),
     pickupTime: payload.pickupTime || 'NOW',
@@ -269,9 +277,15 @@ function mockCreateBooking(payload) {
   return { success: true, data: booking };
 }
 
-function mockCurrentBooking(customerId) {
-  const bookings = [...mockBookings.values()].filter((booking) => !['CANCELLED', 'COMPLETED'].includes(booking.status));
-  return { success: true, data: bookings.at(-1), customerId };
+function mockCurrentBooking(customerPhone) {
+  const phone = safePhone(customerPhone);
+  const bookings = [...mockBookings.values()].filter((booking) => (
+    !['CANCELLED', 'COMPLETED'].includes(booking.status)
+    && safePhone(booking.customerPhone) === phone
+  ));
+  const booking = bookings.at(-1);
+  if (!booking) return invalid('BOOKING_NOT_FOUND', 'active booking was not found', 'Dạ hiện em chưa tìm thấy chuyến nào đang hoạt động theo số điện thoại này ạ.');
+  return { success: true, data: booking };
 }
 
 function mockBookingDetail(bookingId, owner) {
@@ -334,13 +348,16 @@ async function execute(body, expectedTool, build, mockHandler, message, options 
   }
   log('vinlink_tool_called', { toolName: expectedTool, invocationId: invocation, mode: settings.mode, phone: maskPhone(payload.customerPhone) });
   const upstreamPath = options.path?.includes('{') ? upstreamPathFor(expectedTool, payload) : options.path;
+  const outboundPayload = typeof options.upstreamPayload === 'function'
+    ? options.upstreamPayload(payload)
+    : payload;
   const upstream = settings.mode === 'mock'
     ? mockHandler(payload)
     : await upstreamCall(
       body,
       options.method || 'POST',
       upstreamPath,
-      options.method === 'GET' ? undefined : payload,
+      options.method === 'GET' ? undefined : outboundPayload,
       { write: Boolean(options.write) },
     );
   if (upstream.success === false) {
@@ -356,11 +373,22 @@ async function execute(body, expectedTool, build, mockHandler, message, options 
 export function searchPlaces(body) {
   return execute(body, 'vinlink_search_places', (input) => {
     const query = text(read(input, 'query'));
-    if (query.length < 2) return { error: invalid('VALIDATION_ERROR', 'query must contain at least 2 characters', 'Dạ anh/chị cho em xin địa điểm cần tìm rõ hơn một chút ạ.') };
+    if (query.trim().length < 10) return { error: invalid('VALIDATION_ERROR', 'query must contain at least 10 characters', 'Dạ anh/chị cho em xin địa điểm cần tìm rõ hơn một chút ạ.') };
     const nearLat = number(read(input, 'near_lat', 'nearLat'));
     const nearLng = number(read(input, 'near_lng', 'nearLng'));
     return { query, ...(nearLat !== null && nearLng !== null ? { near: { lat: nearLat, lng: nearLng } } : {}) };
   }, mockSearch, (data) => `Dạ, em đã tìm thấy ${data?.items?.length || 0} địa điểm phù hợp để anh/chị chọn ạ.`, { path: '/api/v1/assistant/places/search' });
+}
+
+export function getServices(body) {
+  return execute(
+    body,
+    'vinlink_get_services',
+    () => ({}),
+    () => ({ success: true, data: demoServices }),
+    (data) => `Dạ, hệ thống hiện có ${Array.isArray(data) ? data.length : 0} dịch vụ đang hoạt động ạ.`,
+    { method: 'GET', path: '/api/v1/assistant/services' },
+  );
 }
 
 export function reversePlace(body) {
@@ -389,32 +417,36 @@ export function createBooking(body) {
   return execute(body, 'vinlink_create_booking', (input) => {
     const customerPhone = safePhone(read(input, 'customer_phone', 'customerPhone', 'phone'));
     const customerName = text(read(input, 'customer_name', 'customerName'));
+    const bookingMode = text(read(input, 'booking_mode', 'bookingMode')).toUpperCase();
     const quoteId = text(read(input, 'quote_id', 'quoteId'));
-    const serviceId = number(read(input, 'service_id', 'serviceId')) || config().defaultServiceId;
-    const pickup = placeRef(input, 'pickup');
-    const destination = placeRef(input, 'destination');
-    const pickupTime = text(read(input, 'pickup_time', 'pickupTime')) || 'NOW';
-    const paymentMethod = text(read(input, 'payment_method', 'paymentMethod')).toUpperCase();
+    const serviceId = number(read(input, 'service_id', 'serviceId'));
+    const pickupPlaceId = text(read(input, 'pickup_place_id', 'pickupPlaceId'));
     const confirmedFields = Array.isArray(input.confirmed_fields) ? input.confirmed_fields : [];
-    const required = ['customer_phone', 'customer_name', 'pickup_address', 'destination_address', 'pickup_time', 'payment_method'];
+    const required = ['customer_phone', 'customer_name', 'booking_mode', 'confirmed_summary'];
     const confirmed = input.confirmed === true || required.every((field) => confirmedFields.includes(field));
-    if (!customerPhone || !customerName || !Number.isInteger(serviceId) || !pickup || !destination || !['CASH', 'WALLET', 'CARD'].includes(paymentMethod)) {
-      return { error: invalid('VALIDATION_ERROR', 'missing booking fields', 'Dạ em chưa đủ thông tin đặt xe. Anh/chị cho em kiểm tra lại số điện thoại, tên, điểm đón, điểm đến và phương thức thanh toán nhé.') };
-    }
-    if (!quoteId) {
-      return { error: invalid('QUOTE_REQUIRED', 'quote_id is required when booking has a destination', 'Dạ em cần kiểm tra giá hành trình trước khi tạo yêu cầu đặt xe cho anh/chị ạ.') };
-    }
+    if (!customerPhone || !customerName || !['QUOTED', 'PICKUP_ONLY'].includes(bookingMode)) return { error: invalid('VALIDATION_ERROR', 'customer and booking_mode are required', 'Dạ em chưa đủ tên, số điện thoại hoặc loại yêu cầu đặt chuyến để xử lý ạ.') };
     if (!confirmed) return { error: invalid('CONFIRMATION_REQUIRED', 'confirmed_fields is incomplete', 'Dạ anh/chị xác nhận lại thông tin đặt xe giúp em trước khi tạo yêu cầu nhé.') };
-    return { customerPhone, customerName, ...(quoteId ? { quoteId } : {}), serviceId, pickup, dropoffs: [destination], pickupTime, paymentMethod, note: text(read(input, 'note')), bookNow: false, confirmed: true };
-  }, mockCreateBooking, (data) => `Dạ, em đã ghi nhận yêu cầu đặt xe từ ${text(data?.pickup?.address)} đến ${text(data?.dropoffs?.[0]?.address)}. Hệ thống đang tìm tài xế cho anh/chị ạ.`, { path: '/api/v1/assistant/bookings', write: true });
+    if (bookingMode === 'QUOTED') {
+      if (!quoteId) return { error: invalid('QUOTE_REQUIRED', 'quote_id is required for QUOTED booking', 'Dạ em cần kiểm tra giá hành trình trước khi tạo yêu cầu đặt xe cho anh/chị ạ.') };
+      return { customerPhone, customerName, quoteId, confirmed: true };
+    }
+    if (!Number.isInteger(serviceId) || serviceId <= 0 || !pickupPlaceId) return { error: invalid('VALIDATION_ERROR', 'service_id and pickup_place_id are required for PICKUP_ONLY booking', 'Dạ em cần xác định đúng dịch vụ và điểm đón trước khi tạo chuyến cho anh/chị ạ.') };
+    return { customerPhone, customerName, serviceId, pickup: { placeId: pickupPlaceId }, confirmed: true };
+  }, mockCreateBooking, (data) => {
+    const pickupAddress = text(data?.pickup?.address) || 'điểm đón đã xác nhận';
+    const destinationAddress = text(data?.dropoffs?.[0]?.address);
+    return destinationAddress
+      ? `Dạ, em đã ghi nhận yêu cầu đặt xe từ ${pickupAddress} đến ${destinationAddress}. Hệ thống đang tìm tài xế cho anh/chị ạ.`
+      : `Dạ, em đã ghi nhận yêu cầu đón tại ${pickupAddress}. Chuyến hiện chưa có điểm trả và chưa có giá ạ.`;
+  }, { path: '/api/v1/assistant/bookings', write: true });
 }
 
 export function getCurrentBooking(body) {
   return execute(body, 'vinlink_get_current_booking', (input) => {
-    const customerId = number(read(input, 'customer_id', 'customerId'));
-    if (!Number.isInteger(customerId) || customerId <= 0) return { error: invalid('VALIDATION_ERROR', 'customer_id is required', 'Dạ em cần mã khách hàng để kiểm tra chuyến đang hoạt động ạ.') };
-    return { customerId };
-  }, (payload) => mockCurrentBooking(payload.customerId), (data) => data?.bookingId ? 'Dạ, em đã tìm thấy chuyến đang hoạt động của anh/chị ạ.' : 'Dạ hiện em chưa tìm thấy chuyến nào đang hoạt động ạ.', { method: 'GET', path: '/api/v1/assistant/bookings/current?customerId={customerId}' });
+    const customerPhone = safePhone(read(input, 'customer_phone', 'customerPhone', 'phone'));
+    if (!customerPhone) return { error: invalid('VALIDATION_ERROR', 'customer_phone is required', 'Dạ em cần số điện thoại đã dùng đặt xe để kiểm tra chuyến đang hoạt động ạ.') };
+    return { customerPhone };
+  }, (payload) => mockCurrentBooking(payload.customerPhone), () => 'Dạ, em đã tìm thấy chuyến đang hoạt động của anh/chị ạ.', { method: 'GET', path: '/api/v1/assistant/bookings/current?customerPhone={customerPhone}' });
 }
 
 export function getBooking(body) {
@@ -440,7 +472,11 @@ export function cancelBooking(body) {
     if (!found.success) return found;
     found.data.status = 'CANCELLED';
     return found;
-  }, () => 'Dạ, yêu cầu hủy chuyến của anh/chị đã được hệ thống ghi nhận ạ.', { path: '/api/v1/assistant/bookings/{bookingId}/cancel', write: true });
+  }, () => 'Dạ, yêu cầu hủy chuyến của anh/chị đã được hệ thống ghi nhận ạ.', {
+    path: '/api/v1/assistant/bookings/{bookingId}/cancel',
+    write: true,
+    upstreamPayload: (payload) => ({ customer: payload.customer, reason: payload.reason }),
+  });
 }
 
 export function repriceBooking(body) {
@@ -463,7 +499,7 @@ export function repriceBooking(body) {
 
 // Route handlers need actual URL values for paths containing path/query variables.
 export function upstreamPathFor(toolName, payload) {
-  if (toolName === 'vinlink_get_current_booking') return `/api/v1/assistant/bookings/current?customerId=${encodeURIComponent(payload.customerId)}`;
+  if (toolName === 'vinlink_get_current_booking') return `/api/v1/assistant/bookings/current?customerPhone=${encodeURIComponent(payload.customerPhone)}`;
   if (toolName === 'vinlink_get_booking') {
     const query = payload.owner.customerId ? `customerId=${payload.owner.customerId}` : `customerPhone=${encodeURIComponent(payload.owner.customerPhone)}`;
     return `/api/v1/assistant/bookings/${encodeURIComponent(payload.bookingId)}?${query}`;

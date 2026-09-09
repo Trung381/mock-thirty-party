@@ -33,6 +33,7 @@ import {
   getBooking,
   getCurrentBooking,
   getQuote,
+  getServices,
   repriceBooking,
   reversePlace,
   searchPlaces,
@@ -132,6 +133,9 @@ app.post('/vinlink/assistant/places/search', requireAuth('/vinlink/assistant/pla
 });
 app.post('/vinlink/assistant/places/reverse', requireAuth('/vinlink/assistant/places/reverse'), async (req, res, next) => {
   try { res.json(await reversePlace(req.body)); } catch (error) { next(error); }
+});
+app.post('/vinlink/assistant/services', requireAuth('/vinlink/assistant/services'), async (req, res, next) => {
+  try { res.json(await getServices(req.body)); } catch (error) { next(error); }
 });
 app.post('/vinlink/assistant/quotes', requireAuth('/vinlink/assistant/quotes'), async (req, res, next) => {
   try { res.json(await getQuote(req.body)); } catch (error) { next(error); }
