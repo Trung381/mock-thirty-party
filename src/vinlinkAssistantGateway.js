@@ -12,9 +12,8 @@ const demoPlaces = [
 ];
 
 const demoServices = [
-  { serviceId: 1, code: 'CAR_TRIP', name: 'Lái hộ ô tô theo chuyến', groupName: 'Ô tô' },
-  { serviceId: 2, code: 'CAR_STANDARD', name: 'Lái hộ ô tô', groupName: 'Ô tô' },
-  { serviceId: 3, code: 'MOTORBIKE_TRIP', name: 'Lái hộ xe máy theo chuyến', groupName: 'Xe máy' },
+  { serviceId: 1, code: 'CAR', name: 'Ô tô', groupName: 'Ô tô' },
+  { serviceId: 2, code: 'MOTOBIKE', name: 'Xe máy', groupName: 'Xe máy' },
 ];
 
 let tokenState = { accessToken: '', refreshToken: '', expiresAt: 0 };
@@ -65,7 +64,7 @@ function config() {
     username: text(process.env.VINLINK_ASSISTANT_USERNAME || 'ai_cskh'),
     password: String(process.env.VINLINK_ASSISTANT_PASSWORD || ''),
     staticAccessToken: text(process.env.VINLINK_ASSISTANT_ACCESS_TOKEN),
-    defaultServiceId: number(process.env.VINLINK_ASSISTANT_DEFAULT_SERVICE_ID) || 2,
+    defaultServiceId: number(process.env.VINLINK_ASSISTANT_DEFAULT_SERVICE_ID) || 1,
     timeoutMs: Number.isFinite(timeout) && timeout > 0 ? timeout : DEFAULT_TIMEOUT_MS,
   };
 }
