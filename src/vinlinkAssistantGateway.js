@@ -97,6 +97,26 @@ function placeRef(input, prefix) {
   return null;
 }
 
+function stringList(value) {
+  if (Array.isArray(value)) return value.map(text).filter(Boolean);
+  const raw = text(value);
+  if (!raw) return [];
+  return raw.split('||').map(text).filter(Boolean);
+}
+
+function destinationRefs(input) {
+  const addresses = stringList(input.destination_addresses ?? input.destinationAddresses);
+  const placeIds = stringList(input.destination_place_ids ?? input.destinationPlaceIds);
+  const count = Math.max(addresses.length, placeIds.length);
+  if (count > 0) {
+    return Array.from({ length: count }, (_, index) => (
+      placeIds[index] ? { placeId: placeIds[index] } : (addresses[index] ? { address: addresses[index] } : null)
+    )).filter(Boolean);
+  }
+  const singular = placeRef(input, 'destination');
+  return singular ? [singular] : [];
+}
+
 function customer(input) {
   const customerId = number(read(input, 'customer_id', 'customerId'));
   const customerPhone = safePhone(read(input, 'customer_phone', 'customerPhone', 'phone'));
@@ -403,12 +423,12 @@ export function getQuote(body) {
   return execute(body, 'vinlink_get_quote', (input) => {
     const serviceId = number(read(input, 'service_id', 'serviceId')) || config().defaultServiceId;
     const pickup = placeRef(input, 'pickup');
-    const destination = placeRef(input, 'destination');
+    const dropoffs = destinationRefs(input);
     const pickupTime = text(read(input, 'pickup_time', 'pickupTime')) || 'NOW';
-    if (!Number.isInteger(serviceId) || serviceId <= 0 || !pickup || !destination) {
-      return { error: invalid('VALIDATION_ERROR', 'service_id, pickup and destination are required', 'Dạ anh/chị cho em xin loại dịch vụ, điểm đón và điểm đến để kiểm tra giá ạ.') };
+    if (!Number.isInteger(serviceId) || serviceId <= 0 || !pickup || !dropoffs.length) {
+      return { error: invalid('VALIDATION_ERROR', 'service_id, pickup and at least one destination are required', 'Dạ anh/chị cho em xin loại dịch vụ, điểm đón và ít nhất một điểm đến để kiểm tra giá ạ.') };
     }
-    return { serviceId, pickup, dropoffs: [destination], pickupTime };
+    return { serviceId, pickup, dropoffs, pickupTime };
   }, mockQuote, quoteMessage, { path: '/api/v1/assistant/quotes', write: true });
 }
 
